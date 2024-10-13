@@ -43,7 +43,7 @@ gentoo_source_sync ()
 		script_log echo "pre-update" >> /etc/portage/conf-update.d
 	}
 	
-gentoo_useflags_package ()
+gentoo_useflags_set ()
 	{
 		echo "Setting package useflags..."
 		sleep 4
@@ -228,7 +228,7 @@ user_setup ()
 			then
 				user_setup_elevation
 		else
-				useradd -G wheel,users,audit -c ${iUsers_default[0]} -m -U ${iUser_default[1]} -p "${iUser_default[2]}"
+				useradd -G wheel,users,audit,plugdev -c ${iUsers_default[0]} -m -U ${iUser_default[1]} -p "${iUser_default[2]}"
 				for ((i = 2 ; i <= ${iUser_extra[0]} ; i+=3))
 					do
 						if [ ${iUser_extra[i+2]} == true ]
@@ -237,7 +237,7 @@ user_setup ()
 						else
 								sADMIN=""
 							fi
-						scirpt_log useradd -G ${sADMIN}users,audit -c ${iUser_extra[i-1]} -m -U ${iUser_extra[i]} -p "${iUser_extra[i+1]}"
+						script_log useradd -G ${sADMIN}users,audit,plugdev -c ${iUser_extra[i-1]} -m -U ${iUser_extra[i]} -p "${iUser_extra[i+1]}"
 					done
 			fi
 		script_log passwd --lock root
@@ -281,9 +281,22 @@ user_setup_elevation ()
 		script_log sed -i "SHELL=/c\SHELL=/usr/bin/${iSystem_shell}" /etc/default/useradd
 		script_log useradd -r -G wheel -s /usr/bin/bash elevation -U -p "${iUser_default[2]}"
 		bashrc_write
-		bashrc_skel_write
-		script_log useradd -s /usr/bin/${iSystem_shell} -G elevated,users,audit -c ${iUsers_default[0]} -m -U ${iUser_default[1]} -p "${iUser_default[2]}"
+		user_skel_create
+		script_log useradd -s /usr/bin/${iSystem_shell} -G elevated,users,audit,plugdev -c ${iUsers_default[0]} -m -U ${iUser_default[1]} -p "${iUser_default[2]}"
 		script_log useradd -G wheel -r adm_${iUser_default[1]} -p "${iUser_default[2]}"
+		for ((i = 2 ; i <= ${iUser_extra[0]} ; i+=3))
+			do
+				if [ ${iUser_extra[i+2]} == true ]
+					then
+						sADMIN="elevated,"
+						sADMIN2="wheel"
+				else
+						sADMIN=""
+						sADMIN2=""
+					fi
+				script_log useradd -G ${sADMIN}users,audit,plugdev -c ${iUser_extra[i-1]} -m -U ${iUser_extra[i]} -p "${iUser_extra[i+1]}"
+				script_log useradd -G sADMIN2 -r adm_${iUser_extra[i]} -p "${iUser_extra[i+1]}"
+			done
 	}
 	
 bashrc_write ()
@@ -291,13 +304,146 @@ bashrc_write ()
 		echo "Writing elevationrc..."
 		sleep 4
 		
-		script_log printf 'while ()\n{\neUSERS=$(getent group elevated | cut -d: -f4)\neEND=$(echo $eUSERS | grep -ob "," | grep -oE "[0-9]+" | tail -1)\nfor ( int i = 0 ; i <= $eEND )\ndo\neCHAR=$(echo $eUSERS | grep -ob "," | grep -oE "[0-9]+" | tail -1)\neUSERNAME=$(echo eUSERS | cut -c ${eCHAR}-)\neUSERS=$(echo eUSERS | cut -c -${eCHAR})\nif [ $(getent group wheel | grep "adm_${eUSERNAME}") != 0 ]\nthen\nuseradd -r -G wheel adm_${eUSERNAME}\nePSW=$(grep ${eUSERNAME} | grep -Po ":\K[^;]*")\nsed -i "adm_${eUSERNAME}/s/:/:${ePSW}/"\nfi\ndone\n}' >> /home/elevation/.bashrc
+		script_log echo -e 'while ()\n'\
+		'{\n'\ 
+		'eUSERS=$(getent group elevated | cut -d: -f4)\n'\
+		'eEND=$(echo $eUSERS | grep -ob "," | grep -oE "[0-9]+" | tail -1)\n'\
+		'for ( int i = 0 ; i <= $eEND )\n'\
+		'do\n'\
+		'eCHAR=$(echo $eUSERS | grep -ob "," | grep -oE "[0-9]+" | tail -1)\n'\
+		'eUSERNAME=$(echo eUSERS | cut -c ${eCHAR}-)\n'\
+		'eUSERS=$(echo eUSERS | cut -c -${eCHAR})\n'\
+		'if [ $(getent group wheel | grep "adm_${eUSERNAME}") != 0 ]\n'\
+		'then\n'\
+		'useradd -r -G wheel adm_${eUSERNAME}\n'\
+		'ePSW=$(grep ${eUSERNAME} | grep -Po ":\K[^;]*")\n'\
+		'sed -i "adm_${eUSERNAME}/s/:/:${ePSW}/"\n'\
+		'fi\n'\
+		'done\n'\
+		'}' >> /home/elevation/.bashrc
 	}
 	
-bashrc_skel_write ()
+user_skel_create ()
 	{
 		echo "Writing skeleton..."
 		sleep 4
 		
-		script_log echo 'elevate () { su -c "'${iSystem_privilege}' $@" adm_$(whoami) }' >> /etc/skel/.bashrc
+		if [ ${iSystem_shell} == "nu" ]
+			then
+				script_log mkdir -p /etc/skel/.config/nushell/NOTUPSTREAM
+				script_log echo -e 'def elevate [...command: string] {\n'\
+				'mut eCmd = "'${iSystem_privilege}'"\n'\
+				'for $eCommand in $command {\n'\
+				'$eCmd += " " + $eCommand\n'\
+				'}\n'\
+				'su -c $eCmd (whoami)\n'\
+				'}' > /etc/skel/.config/nushell/NOTUPSTREAM/elevation.nu
+		else
+				script_log echo 'elevate () { su -c "'${iSystem_privilege}' $@" adm_$(whoami) }' >> /etc/skel/.bashrc
+			fi
 	}
+	
+packages_defined_install ()
+	{
+		echo "Installing defined packages..."
+		sleep 4
+		
+		for (( i = 1 ; i <= ${iPackages_define[0]} ; i++))
+			do
+				sPKG=${iPackages_define[i]# *}
+				sFILE=${sPKG#*/}
+				script_log echo "${iPackages_define[i]}" > /etc/portage/package.use/${sFILE}
+				script_log libtool --finish /usr/lib64
+				script_log script_emerge ${sPKG}
+			done
+	}
+	
+packages_nixpkgs_install ()
+	{
+		if [ ${iPackages_nixpkgs} == true ]
+			then
+				echo "Installing nixpkgs..."
+				sleep 4
+				
+				script_log yes | sh <(curl -L https://nixos.org/nix/install) --daemon
+			fi
+	}
+	
+packages_alias_update_create ()
+	{
+		echo "Creating update alias..."
+		sleep 4
+		
+		sSTARTA="neofetch ; ${iSystem_privilege} emaint -a sync ; ${iSystem_privilege} emerge -uDN @world ; ${iSystem_privilege} etc-update --automod -5 ; ${iSystem_privilege} emerge --depclean ; ${iSystem_privilege} emerge --oneshot sys-apps/portage"
+		if [ ${iPackages_nixpkgs} == true ]
+			then
+				sNIXA=" ; ${iSystem_privilege} nix-env --upgrade"
+			fi
+		if [ ${iSystem_profile[0]} == "desktop" ]
+			then
+				sFLATPAKA=" ; flatpak update -y"
+			fi
+		sINITRAMFSA=" ; ${iSystem_privilege} dracut --regenerate-all --uefi"
+		sENDA=" ; fwupdmgr refresh --force ; fwupdmgr update && fwupdmgr install"
+		
+		if [ ${iSytem_shell} == "nu" ]
+			then
+				script_log mkdir -p /etc/skel/.config/nushell/NOTUPSTREAM
+				script_log echo "alias update = '${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}'" >> /etc/skel/.config/nushell/NOTUPSTREAM/update_alias.nu
+				script_log echo "alias update-uefi= '${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}${sEND}'" >> /etc/skel/.config/nushell/NOTUPSTREAM/update_alias.nu
+		else
+				script_log echo "alias update='${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}'" >> /etc/skel/.bashrc
+				script_log echo "alias update-uefi='${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}${sEND}'" >> /etc/skel/.bashrc
+			fi
+	}
+	
+script_finish ()
+	{
+		echo "Finishing installation..."
+		sleep 4
+		
+		script_log systemctl enable firewalld systemd-timesyncd auditd NetworkManager systemd-boot-upgrade apparmor
+		if [ ${iSystem_profile[0]} != "minimal" ]
+			then
+				script_log systemctl enable --global pipewire-pulse.socket wireplumber.service
+				if [ ${iSystem_profile[0]} == "server" ]
+					then
+						script_log systemctl enable docker sshd
+				else
+						script_log systemctl enable gdm
+					fi
+			fi
+		script_log systemd_machine-id-setup
+		script_log systemd-firstboot --locale=${iLocale_lang[1]}${iLocale_encode} --keymap=${iLocale_keymap} --timezone=${iSystem_timezone} --hostname=${iSystem_hostname}
+		script_log systemctl preset-all --preset-mode=enable-only
+	}
+	
+
+
+gentoo_source_sync
+gentoo_useflags_set
+system_timezone_set
+locale_set
+gentoo_keywords_accept
+system_mac_install
+system_kernel_install
+system_packages_base_install
+system_kernel_essential_install
+system_packages_basedevel_install
+system_packages_efi_install
+world_update
+system_hostname_set
+system_boot_setup
+user_setup
+packages_defined_install
+packages_nixpkgs_install
+packages_alias_update_create
+
+
+if [ ${iSystem_profile[0]} != "minimal" ]
+	then
+		. ./gentoo_${iSystem_profile[0]}_v${sVersion}.sh
+else
+		script_finish
+		. ./gentoo_cleanup_v${sVersion}.sh
+	fi
