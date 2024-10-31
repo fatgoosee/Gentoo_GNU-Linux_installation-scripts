@@ -111,7 +111,7 @@ system_setup ()
 		script_log sed -i '/COMMON_FLAGS=/c\COMMON_FLAGS="-march=native -O2 -pipe"' /mnt/gentoo/etc/portage/make.conf
 		script_log echo "" >> /mnt/gentoo/etc/portage/make.conf
 		script_log echo "MAKEOPTS=\"${iGentoo_makeopts}\"" >> /mnt/gentoo/etc/portage/make.conf
-		script_log echo "USE=\"${iGentoo_globalUseflags}\"" >> /mnt/gentoo/etc/portage/make.conf
+		script_log echo "USE=\"${iGentoo_globalUseflags} dbus screencast systemd cryptsetup dist-kernel apparmor\"" >> /mnt/gentoo/etc/portage/make.conf
 		script_log echo 'ACCEPT_LICENSE="*"' >> /mnt/gentoo/etc/portage/make.conf
 		script_log cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
 		script_log cp ${sLocation}/gentoo_config_v${sVersion}.sh /mnt/gentoo

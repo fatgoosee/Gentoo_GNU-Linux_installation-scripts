@@ -54,8 +54,7 @@ gentoo_useflags_set ()
 				script_log sed -i "s/USE=\"/USE=\"bluetooth ffmpeg extra ieee1394 v4l audit\ /" /etc/portage/make.conf
 				if [ ${iSystem_profile[0]} == "desktop" ]
 					then
-						script_log sed -i "s/USE=\"/USE=\"wayland egl gnome gtk accessibility policykit cups opengl vaapi vulkan zstd gles2 X\ /" /etc/portage/make.conf
-						script_log echo "dev-cpp/gtkmm X" > /etc/portage/package.use/gtkmm
+						script_log sed -i "s/USE=\"/USE=\"wayland egl gnome gtk accessibility policykit cups opengl vaapi vulkan zstd gles2\ /" /etc/portage/make.conf
 					fi
 			fi
 		script_log echo "sys-kernel/installkernel dracut uki" > /etc/portage/package.use/installkernel
