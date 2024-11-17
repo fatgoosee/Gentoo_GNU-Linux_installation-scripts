@@ -1,6 +1,6 @@
 #! /bin/bash
 
-sVersion="0.1"
+sVersion="0.2"
 
 script_error ()
 	{

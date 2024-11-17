@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # Used for version checks
-sVersion="0.1"
+sVersion="0.2"
 
 # Location where scripts and stage3 archive are stored
 sLocation="/mnt/files"
@@ -30,10 +30,10 @@ sLocation="/mnt/files"
 			# "filesystem" "start sector" "end sector"
 			
 # User configuration
-	iUser_default=("Sol" "sol" "DoNotShow_Any1YourPa55word!")
-		# "display name" "username" "password"
-	iUser_extra=(0 "Aksinya" "aksinya" "DoNotShow_Any1YourPa55word!" false "Arvid" "arvid" "DoNotShow_Any1YourPa55word!" false)
-		# user entries "display name" "username" "password" privileged
+	iUser_default=("Sol" "sol" "DoNotShow_Any1YourPa55word!" "sol@script.no" "Wall Street 11, New York, United States of America")
+		# "display name" "username" "password" "email" "location"
+	iUser_extra=(0 "Aksinya" "aksinya" "DoNotShow_Any1YourPa55word!" "" "" false "Arvid" "arvid" "DoNotShow_Any1YourPa55word!" "" "" false)
+		# user entries "display name" "username" "password" "email" "location" privileged
 	iUser_elevation=false
 		## a system where a user has an extra admin account
 		
@@ -41,13 +41,14 @@ sLocation="/mnt/files"
 	iSystem_hostname="gentoo_gnu+linux"
 	iSystem_timezone="Europe/Madrid"
 	iSystem_profile=("minimal" false)
-		# "minimal", "server" or "desktop" extra extra	## server and desktop are based on minimal, desktop is gnome, extra installs programms inside docker for server or installs phosh for desktop
+		# "minimal", "server", "kiosk" or "desktop" extra	## server and desktop are based on minimal, kiosk is cage (github), desktop is gnome, extra installs programms inside docker for server or installs phosh for desktop
 	iSystem_kernel="gentoo"
 		# "gentoo" or "vanilla"
-	iSystem_shell="bash"
-		# "bash" or "nu"
+	iSystem_secureboot=false
 	iSystem_privilege="sudo"
 		# "sudo" or "doas"
+	iSystem_shell="bash"
+		# "bash" or "nu"
 		
 # Packages			
 	iPackages_define=(2 "app-editors/neovim" "dev-vcs/git gpg")

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-sVersion="0.1"
+sVersion="0.2"
 
 script_error ()
 	{
@@ -54,11 +54,12 @@ gentoo_useflags_set ()
 				script_log sed -i "s/USE=\"/USE=\"bluetooth ffmpeg extra ieee1394 v4l audit\ /" /etc/portage/make.conf
 				if [ ${iSystem_profile[0]} == "desktop" ]
 					then
-						script_log sed -i "s/USE=\"/USE=\"wayland egl gnome gtk accessibility policykit cups opengl vaapi vulkan zstd gles2\ /" /etc/portage/make.conf
+						script_log sed -i "s/USE=\"/USE=\"wayland egl gnome gtk accessibility cups opengl vaapi vulkan gles2\ /" /etc/portage/make.conf
 					fi
 			fi
 		script_log echo "sys-kernel/installkernel dracut uki" > /etc/portage/package.use/installkernel
-		script_log echo "sys-apps/systemd boot resolvconf timesync" > /etc/portage/package.use/systemd
+		script_log echo "sys-apps/systemd boot resolvconf timesync audit homed bpf cryptsetup" > /etc/portage/package.use/systemd
+		script_log echo "sys-auth/pambase homed" > /etc/portage/package.use/systemd
 		script_log echo "net-misc/networkmanager concheck connection-sharing wpa_supplicant modemmanager rp-pppoe nftables ofono wifi systemd-resolved" > /etc/portage/package.use/networkmanager
 		script_log echo "net-wireless/wpa_supplicant ap" > /etc/portage/package.use/wpa_supplicant
 		script_log echo "sys-apps/firejail chroot dbusproxy file-transfer globalcfg network userns apparmor contrib" > /etc/portage/package.use/firejail
@@ -104,7 +105,7 @@ system_packages_base_install ()
 			then
 				script_log script_emerge app-shells/nushell
 			fi
-		script_log script_emerge sys-apps/dbus app-shells/bash app-shells/bash-completion app-arch/bzip2 sys-apps/file sys-apps/coreutils sys-apps/findutils sys-apps/gawk sys-devel/gcc sys-devel/gettext sys-libs/glibc sys-apps/grep app-arch/gzip sys-apps/iproute2 net-misc/iputils sys-apps/pciutils sys-process/procps sys-process/psmisc sys-apps/sed sys-apps/shadow sys-apps/systemd app-arch/tar sys-apps/util-linux app-arch/xz-utils app-crypt/gnupg
+		script_log script_emerge sys-apps/dbus app-shells/bash app-shells/bash-completion app-arch/bzip2 sys-apps/file sys-apps/coreutils sys-apps/findutils sys-apps/gawk sys-devel/gcc sys-devel/gettext sys-libs/glibc sys-apps/grep app-arch/gzip sys-apps/iproute2 net-misc/iputils sys-apps/pciutils sys-process/procps sys-process/psmisc sys-apps/sed sys-apps/shadow sys-apps/systemd app-arch/tar sys-apps/util-linux app-arch/xz-utils app-crypt/gnupg dev-libs/openssl
 		script_log libtool --finish /usr/lib64
 	}
 	
@@ -122,7 +123,7 @@ system_packages_basedevel_install ()
 		echo "Installing base development packages..."
 		sleep 4
 		
-		script_log script_emerge dev-build/autoconf dev-build/automake sys-devel/binutils sys-devel/bison dev-util/debugedit sys-apps/fakeroot sys-devel/flex sys-apps/groff dev-build/libtool
+		script_log script_emerge dev-build/autoconf dev-build/automake sys-devel/binutils sys-devel/bison dev-util/debugedit sys-apps/fakeroot sys-devel/flex sys-apps/groff dev-build/libtool dev-build/meson
 		libtool --finish /usr/lib64
 		script_log script_emerge sys-devel/m4 dev-build/make sys-devel/patch dev-util/pkgconf sys-apps/texinfo sys-apps/which sys-fs/btrfs-progs dev-build/cmake
 		script_log libtool --finish /usr/lib64
@@ -135,7 +136,7 @@ system_packages_efi_install ()
 		echo "Installing efi management packages..."
 		sleep 4
 		
-		script_log script_emerge sys-boot/efibootmgr
+		script_log script_emerge sys-boot/efibootmgr app-crypt/efitools app-crypt/sbsigntools
 		if [ "$(uname -m)" == "x86_64" ]
 			then
 				script_log echo "sys-firmware/intel-microcode initramfs intel-ucode" > /etc/portage/package.use/intel-microcode
@@ -198,12 +199,34 @@ system_boot_setup ()
 				script_log echo "kernel_cmdline+=\" init=/usr/lib/systemd/systemd root=UUID=$(blkid -o value -s UUID /dev/${iDisk_encrypt_device}) rd.luks.uuid=$(blkid -o value -s UUID /dev/${iDisk_device}2) rootflags=subvol=@ \"" >> /etc/dracut.conf
 				if [ ${iDisk_encrpyt[2]} == true ]
 					then
-						script_log sed -i "kernel_cmdline+=/$/\"/rd.luks.key=/crypt_key.luks.gpg:UUID=$(blkid -o value -s UUID /dev/${iDisk_device}1)\ \""
+						script_log sed -i "kernel_cmdline+=/$/\"/rd.luks.key=/crypt_key.luks.gpg:UUID=$(blkid -o value -s UUID /dev/${iDisk_device}1)\ \"" /etc/dracut.conf
 					fi
 		else
 				script_log echo "kernel_cmdline+=\" init=/usr/lib/systemd/systemd root=UUID=$(blkid -o value -s UUID /dev/${iDisk_device}2) rootflags=subvol=@ rootfstype=btrfs \"" >> /etc/dracut.conf
 			fi
 		script_log sed -i "s/kernel_cmdline+=\"/kernel_cmdline+=\"\ apparmor=1 security=apparmor\ /" /etc/dracut.conf
+		if [ ${iSystem_secureboot} == true ]
+			then
+				script_log echo 'SECUREBOOT_SIGN_KEY="secureboot/db.key"' >> /etc/portage/make.conf
+				script_log echo 'SECUREBOOT_CERT_KEY="secureboot/db.crt"' >> /etc/portage/make.conf
+				script_log echo 'uefi_secureboot_cert="secureboot/db.crt"' >> /etc/dracut.conf
+				script_log echo 'uefi_secureboot_key="secureboot/db.key"' >> /etc/dracut.conf
+				sUUID=$(uuidgen)
+				for sTYPE in PK KEK db dbx
+					do
+						script_log openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Gentoo ${sTYPE}" -keyout secureboot/${sTYPE}.key -out secureboot/${sTYPE}.crt -days 9999 -sha256
+						script_log cert-to-efi-sig-list -g ${sUUID} secureboot/${sTYPE}.crt secureboot/${sTYPE}.esl
+					done
+				script_log sign-efi-sig-list -k secureboot/PK.key -c secureboot/PK.crt PK secureboot/PK.esl secureboot/PK.auth
+				script_log sign-efi-sig-list -k secureboot/PK.key -c secureboot/PK.crt KEK secureboot/KEK.esl secureboot/KEK.auth
+				for sTYPE in db dbx
+					do
+						script_log sign-efi-sig-list -k secureboot/KEK.key -c secureboot/KEK.crt ${sTYPE} secureboot/${sTYPE}.esl secureboot/${sTYPE}.auth
+						efi-updatevar -e -f secureboot/${sTYPE}.esl ${sTYPE}
+					done
+				script_log efi-updatevar -e -f secureboot/KEK.esl KEK
+				script_log efi-updatevar -f secureboot/PK.auth PK
+			fi
 		script_log bootctl install
 		script_log rm -f /boot/EFI/Linux/$(ls /boot/EFI/Linux/ | grep -v linux-)
 		script_log dracut --regenerate-all --uefi
@@ -214,6 +237,11 @@ user_setup ()
 		echo "Setting up user account(s)..."
 		sleep 4
 		
+		script_log systemctl enable --now systemd-homed.service
+		script_log sed -i "passwd:/$/\ systemd" /etc/nsswitch.conf
+		script_log sed -i "shadow:/$/\ systemd" /etc/nsswitch.conf
+		script_log sed -i "group:/$/\ [SUCESS=merge]\ systemd" /etc/nsswitch.conf
+		script_log sed -i "gshadow:/$/\ systemd" /etc/nsswitch.conf
 		if [ ${iSystem_privilege} == "doas" ]
 			then
 				user_setup_doas
@@ -227,16 +255,32 @@ user_setup ()
 			then
 				user_setup_elevation
 		else
-				useradd -G wheel,users,audit,plugdev -c ${iUsers_default[0]} -m -U ${iUser_default[1]} -p "${iUser_default[2]}"
-				for ((i = 2 ; i <= ${iUser_extra[0]} ; i+=3))
+				script_log echo -e "{\n"\
+				"\t\"enforcePasswordPolicy\" : false,\n"\
+				"\t\"secret\" : {\n"\
+				"\t\t\t\"password\" : [\n"\
+				"\t\t\t\t\"${iUser_default[2]}\"\n"\
+				"\t\t\t]\n"\
+				"\t\t},\n"\
+				"}" >> pwd.json
+				script_log homectl create --identity=pwd.json ${iUser_default[1]} --shell=/usr/bin/${iSystem_shell} --member-of=wheel,users,audit,plugdev --real-name="${iUsers_default[0]}" --email-address="${iUser_default[3]}" --location="${iUser_default[4]}" --storage=luks --fs-type=btrfs
+				for ((i = 2 ; i <= ${iUser_extra[0]} ; i += 6))
 					do
-						if [ ${iUser_extra[i+2]} == true ]
+						if [ ${iUser_extra[i + 4]} == true ]
 							then
 								sADMIN="wheel,"
 						else
 								sADMIN=""
 							fi
-						script_log useradd -G ${sADMIN}users,audit,plugdev -c ${iUser_extra[i-1]} -m -U ${iUser_extra[i]} -p "${iUser_extra[i+1]}"
+						script_log echo -e "{\n"\
+						"\t\"enforcePasswordPolicy\" : false,\n"\
+						"\t\"secret\" : {\n"\
+						"\t\t\t\"password\" : [\n"\
+						"\t\t\t\t\"${iUser_extra[i + 1]}\"\n"\
+						"\t\t\t]\n"\
+						"\t\t},\n"\
+						"}" >> pwd.json
+						script_log homectl create --identity=pwd.json ${iUser_extra[i]} --shell=/usr/bin/${iSystem_shell} --member-of=${sADMIN}users,audit,plugdev --real-name="${iUser_extra[i - 1]}" --email-address="${iUser_extra[i + 2]}" --location="${iUser_extra[i + 3]}" --storage=luks --fs-type=btrfs
 					done
 			fi
 		script_log passwd --lock root
@@ -277,24 +321,41 @@ user_setup_elevation ()
 		echo "Setting up elevation..."
 		sleep 4
 		
-		script_log sed -i "SHELL=/c\SHELL=/usr/bin/${iSystem_shell}" /etc/default/useradd
+		script_log sed -i "\#SHELL=#c\SHELL=/usr/bin/${iSystem_shell}" /etc/default/useradd
 		script_log useradd -r -G wheel -s /usr/bin/bash elevation -U -p "${iUser_default[2]}"
 		bashrc_write
 		user_skel_create
-		script_log useradd -s /usr/bin/${iSystem_shell} -G elevated,users,audit,plugdev -c ${iUsers_default[0]} -m -U ${iUser_default[1]} -p "${iUser_default[2]}"
+		script_log echo -e "{\n"\
+		"\t\"enforcePasswordPolicy\" : false,\n"\
+		"\t\"secret\" : {\n"\
+		"\t\t\t\"password\" : [\n"\
+		"\t\t\t\t\"${iUser_default[2]}\"\n"\
+		"\t\t\t]\n"\
+		"\t\t},\n"\
+		"}" >> pwd.json
+		script_log homectl create --identity=pwd.json ${iUser_default[1]} --shell=/usr/bin/${iSystem_shell} --member-of=elevated,users,audit,plugdev --real-name="${iUsers_default[0]}" --email-address="${iUser_default[3]}" --location="${iUser_default[4]}" --storage=luks --fs-type=btrfs
 		script_log useradd -G wheel -r adm_${iUser_default[1]} -p "${iUser_default[2]}"
-		for ((i = 2 ; i <= ${iUser_extra[0]} ; i+=3))
+		for ((i = 2 ; i <= ${iUser_extra[0]} ; i += 6))
 			do
-				if [ ${iUser_extra[i+2]} == true ]
+				if [ ${iUser_extra[i + 4]} == true ]
 					then
 						sADMIN="elevated,"
 						sADMIN2="wheel"
+						
+						script_log useradd -G sADMIN2 -r adm_${iUser_extra[i]} -p "${iUser_extra[i + 1]}"
 				else
 						sADMIN=""
 						sADMIN2=""
 					fi
-				script_log useradd -G ${sADMIN}users,audit,plugdev -c ${iUser_extra[i-1]} -m -U ${iUser_extra[i]} -p "${iUser_extra[i+1]}"
-				script_log useradd -G sADMIN2 -r adm_${iUser_extra[i]} -p "${iUser_extra[i+1]}"
+				script_log echo -e "{\n"\
+				"\t\"enforcePasswordPolicy\" : false,\n"\
+				"\t\"secret\" : {\n"\
+				"\t\t\t\"password\" : [\n"\
+				"\t\t\t\t\"${iUser_extra[i + 1]}\"\n"\
+				"\t\t\t]\n"\
+				"\t\t},\n"\
+				"}" >> pwd.json
+				script_log homectl create --identity=pwd.json ${iUser_extra[i]} --shell=/usr/bin/${iSystem_shell} --member-of=${sADMIN}users,audit,plugdev --real-name="${iUser_extra[i - 1]}" --email-address="${iUser_extra[i + 2]}" --location="${iUser_extra[i + 3]}" --storage=luks --fs-type=btrfs
 			done
 	}
 	
@@ -389,10 +450,18 @@ packages_alias_update_create ()
 			then
 				script_log mkdir -p /etc/skel/.config/nushell/NOTUPSTREAM
 				script_log echo "alias update = '${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}'" >> /etc/skel/.config/nushell/NOTUPSTREAM/update_alias.nu
-				script_log echo "alias update-uefi= '${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}${sEND}'" >> /etc/skel/.config/nushell/NOTUPSTREAM/update_alias.nu
+				script_log echo "alias update-uefi = '${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}${sEND}'" >> /etc/skel/.config/nushell/NOTUPSTREAM/update_alias.nu
+				if [ ${iSystem_profile[0]} == "kiosk" ]
+					then
+						script_log echo 'setcage [binary: string] { sed -i "\#ExecStart=/usr/bin/cage#c\ExecStart=/usr/bin/cage\ /usr/bin/$binary" }' >> /etc/skel/.config/nushell/NOTUPSTREAM/setcage_alias.nu
+					fi
 		else
 				script_log echo "alias update='${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}'" >> /etc/skel/.bashrc
 				script_log echo "alias update-uefi='${sSTARTA}${sNIXA}${sFLATPAKA}${sINITRAMFSA}${sEND}'" >> /etc/skel/.bashrc
+				if [ ${iSystem_profile[0]} == "kiosk" ]
+					then
+						script_log echo 'setcage () { sed -i "\#ExecStart=/usr/bin/cage#c\ExecStart=/usr/bin/cage\ /usr/bin/$@" }' >> /etc/skel/.bashrc
+					fi
 			fi
 	}
 	
@@ -401,15 +470,15 @@ script_finish ()
 		echo "Finishing installation..."
 		sleep 4
 		
-		script_log systemctl enable firewalld systemd-timesyncd auditd NetworkManager systemd-boot-upgrade apparmor
+		script_log systemctl enable firewalld.service systemd-timesyncd.service auditd.service NetworkManager.service systemd-boot-upgrade.service apparmor.service
 		if [ ${iSystem_profile[0]} != "minimal" ]
 			then
 				script_log systemctl enable --global pipewire-pulse.socket wireplumber.service
 				if [ ${iSystem_profile[0]} == "server" ]
 					then
-						script_log systemctl enable docker sshd
+						script_log systemctl enable docker.service sshd.service
 				else
-						script_log systemctl enable gdm
+						script_log systemctl enable gdm.service
 					fi
 			fi
 		script_log systemd_machine-id-setup
@@ -433,10 +502,11 @@ system_packages_efi_install
 world_update
 system_hostname_set
 system_boot_setup
+packages_alias_update_create
 user_setup
 packages_defined_install
 packages_nixpkgs_install
-packages_alias_update_create
+
 
 
 if [ ${iSystem_profile[0]} != "minimal" ]
