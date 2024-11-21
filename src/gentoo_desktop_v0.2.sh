@@ -11,8 +11,8 @@ script_log ()
 	{
 		"$@"
 		
-		printf "\n\n$?:\n\t\t" >> gentoo_minimal_v${sVersion}.log
-		"$@" &>> gentoo_minimal_v${sVersion}.log
+		printf "\n\n$?:\n\t\t" >> gentoo_desktop_v${sVersion}.log
+		"$@" &>> gentoo_desktop_v${sVersion}.log
 	}
 	
 

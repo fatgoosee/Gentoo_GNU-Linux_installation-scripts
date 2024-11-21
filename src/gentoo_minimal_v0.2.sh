@@ -426,6 +426,7 @@ packages_nixpkgs_install ()
 				sleep 4
 				
 				script_log yes | sh <(curl -L https://nixos.org/nix/install) --daemon
+				script_log echo "--experimental-features 'nix-command flakes'" >> /etc/nix/nix.conf
 			fi
 	}
 	
@@ -437,7 +438,7 @@ packages_alias_update_create ()
 		sSTARTA="neofetch ; ${iSystem_privilege} emaint -a sync ; ${iSystem_privilege} emerge -uDN @world ; ${iSystem_privilege} etc-update --automod -5 ; ${iSystem_privilege} emerge --depclean ; ${iSystem_privilege} emerge --oneshot sys-apps/portage"
 		if [ ${iPackages_nixpkgs} == true ]
 			then
-				sNIXA=" ; ${iSystem_privilege} nix-env --upgrade"
+				sNIXA=" ; ${iSystem_privilege} nix profile upgrade --all"
 			fi
 		if [ ${iSystem_profile[0]} == "desktop" ]
 			then

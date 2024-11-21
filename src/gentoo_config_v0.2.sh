@@ -41,7 +41,7 @@ sLocation="/mnt/files"
 	iSystem_hostname="gentoo_gnu+linux"
 	iSystem_timezone="Europe/Madrid"
 	iSystem_profile=("minimal" false)
-		# "minimal", "server", "kiosk" or "desktop" extra	## server and desktop are based on minimal, kiosk is cage (github), desktop is gnome, extra installs programms inside docker for server or installs phosh for desktop
+		# "minimal", "server", "kiosk" or "desktop" extra	## server and desktop are based on minimal, kiosk is gnome-kiosk (github), desktop is gnome, extra installs programms inside docker for server or installs phosh for desktop
 	iSystem_kernel="gentoo"
 		# "gentoo" or "vanilla"
 	iSystem_secureboot=false
