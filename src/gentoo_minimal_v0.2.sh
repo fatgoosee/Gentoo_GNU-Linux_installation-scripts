@@ -426,7 +426,7 @@ packages_nixpkgs_install ()
 				sleep 4
 				
 				script_log yes | sh <(curl -L https://nixos.org/nix/install) --daemon
-				script_log echo "--experimental-features 'nix-command flakes'" >> /etc/nix/nix.conf
+				script_log echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
 			fi
 	}
 	
