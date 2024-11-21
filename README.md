@@ -28,9 +28,11 @@ _**This script uses systemd only!**_
 
 minimal profile can be compared to a base + base-devel archlinux installation
 
-server and desktop both are based on minimal profile
+server, kiosk and desktop are based on minimal profile
 
 server adds pipewire, docker, nginx and posresql, the extra option installs nginx on docker instead of the system.
+
+kiosk adds pipewire, gnome-kiosk and flatpak
 
 desktop adds pipewire, gnome and flatpak, the extra option installs phosh alongside
 

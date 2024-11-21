@@ -40,7 +40,7 @@ gentoo_kiosk_useflags_set ()
 	
 system_packages_kiosk_install ()
 	{
-		script_log script_emerge dev-vcs/git dev-vcs/mercurial dev-libs/wayland dev-libs/wayland-protocols dev-libs/glib sys-libs/glibc gnome-base/gnome-session gnome-base/gsettings-desktop-schemas media-libs/libglvnd app-i18n/ibus x11-libs/libx11 x11-wm/mutter 
+		script_log script_emerge dev-vcs/git dev-vcs/mercurial dev-libs/wayland dev-libs/wayland-protocols dev-libs/glib sys-libs/glibc gnome-base/gnome-session gnome-base/gsettings-desktop-schemas media-libs/libglvnd app-i18n/ibus x11-libs/libx11 x11-wm/mutter media-video/wireplumber media-video/pipewire media-libs/libpulse net-dns/avahi sys-auth/rtkit sys-apps/flatpak
 		script_log libtool --finish /usr/lib64
 		script_log git clone https://gitlab.gnome.org/GNOME/gnome-kiosk.git
 		script_log cd /gnome-kiosk
@@ -49,8 +49,7 @@ system_packages_kiosk_install ()
 		script_log meson install ./build
 		script_log libtool --finish /usr/lib64
 		script_log cd
-		script_log script_emerge media-video/wireplumber media-video/pipewire media-libs/libpulse dev-db/postresql net-dns/avahi sys-auth/rtkit
-		script_log libtool --finish /usr/lib64
+		script_log flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 	}
 	
 	
